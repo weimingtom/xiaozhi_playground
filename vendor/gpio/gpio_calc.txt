@@ -1,0 +1,21 @@
+(E-A)*32+5=4*32+5=128+5=133
+
+PE5
+
+echo 133 > /sys/class/gpio/export
+echo out > /sys/class/gpio/gpio133/direction
+echo 1 > /sys/class/gpio/gpio133/value
+
+
+(E-A)*32+1=4*32+1=128+1=129
+PE1
+gameL
+
+
+https://bbs.aw-ol.com/topic/3650/gaviar-handheld-小志掌機/52
+(E-A)*32+5=4*32+3=128+3=131
+PE3=menu
+
+echo 131 > /sys/class/gpio/export
+echo out > /sys/class/gpio/gpio131/direction
+echo 1 > /sys/class/gpio/gpio131/value

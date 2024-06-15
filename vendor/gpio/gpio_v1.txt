@@ -1,0 +1,236 @@
+echo 139 > /sys/class/gpio/export
+echo out > /sys/class/gpio/gpio139/direction
+echo 1 > /sys/class/gpio/gpio139/value
+
+https://d1s.docs.aw-ol.com/hard/hard_3boarduse/
+
+
+增加了一颗 GPIO LED 灯，方便点灯使用~~，连接到主控的 PE11 引脚上
+
+(E-A)*32+11=4*32+11=128+11=139
+
+--------
+https://wiki.sipeed.com/hardware/zh/lichee/RV/user.html
+
+
+从原理图可以查到 LED 连接的是 PC0 引脚，根据简单的公式 ('C'-'A')x32 + 0 = 2x32+0 = 64
+
+当然我们也可以查看 pinmux-pins 文件中的内容来知道 IO 复用情况表：
+
+cat /sys/kernel/debug/pinctrl/2000000.pinctrl/pinmux-pins
+...
+pin 64 (PC0): device 2008000.ledc function ledc group PC0 #这里可以看到是LED引脚
+pin 65 (PC1): UNCLAIMED
+pin 66 (PC2): UNCLAIMED
+pin 67 (PC3): UNCLAIMED
+pin 68 (PC4): UNCLAIMED
+pin 69 (PC5): UNCLAIMED
+pin 70 (PC6): UNCLAIMED
+pin 71 (PC7): UNCLAIMED
+
+
+---------------------------------
+
+
+
+https://gitee.com/mFlying/ssd2xx-demo/blob/master/7.gpio/gpio_test_input/main.c
+
+----------------------------
+
+https://blog.csdn.net/baidu_33879812/article/details/95976520
+
+
+GPIO Sysfs
+
+雲烟
+
+于 2019-07-15 16:06:55 发布
+
+391
+ 收藏
+分类专栏： 工具使用
+版权
+
+工具使用
+专栏收录该内容
+2 篇文章0 订阅
+订阅专栏
+用户空间的GPIO Sysfs接口
+==================================
+
+        sysfs是一个基于ram的文件系统，最初基于ramfs。它提供了一种将内核数据结构，它们的属性以及它们之间的链接导出到用户空间的方法。
+
+       此ABI已被弃用，ABI文档已移至Documentation/ABI/obsolete/sysfs-gpio和新的用户消费者被允许使用字符设备ABI。这个旧的SYSFS ABI将不会被开发（没有新的功能），它只会被维护。有关新字符设备ABI的介绍，请参阅tools / gpio / *中的示例。另请参阅用户空间头文件：include / uapi / linux / gpio.h。不推荐使用的sysfs ABI。
+------------------------
+       使用“gpiolib”实现者框架的平台可以选择为GPIO配置sysfs用户界面。这与debugfs接口不同，因为它提供对GPIO方向和值的控制，而不是仅显示gpio状态。此外，它可能存在于没有调试支持的系统上。给定系统的适当硬件文档，用户空间可以知道例如GPIO＃23控制用于保护闪存中的引导加载程序段的写保护线。系统升级过程可能需要临时删除该保护，首先导入GPIO，然后更改其输出状态，然后在重新启用写保护之前更新代码。在正常使用中，GPIO＃23永远不会被触及，内核也不需要知道它。同样取决于适当的硬件文档，在某些系统上，用户空间GPIO可用于确定标准内核不知道的系统配置数据。对于某些任务，简单的用户空间GPIO驱动程序可能是系统真正需要的全部功能。不要滥用SYSFS控制硬件，这是有正确的核心驱动程序。请阅读文档/ driver-api / gpio / drivers-on-gpio.rst上的文档，以避免在用户中重新使用内核轮。我是认真的。真。
+
+Sysfs中的路径
+--------------
+/ sys / class / gpio中有三种类型：
+
+    - 用于获得用户空间控制GPIO的控制接口;
+
+    -  GPIO本身；
+
+    -  GPIO控制器（“gpio_chip”实例）。
+
+这是标准文件的补充，包括“设备”符号链接。
+
+只写的控制接口：
+
+    / SYS /CLASS/ GPIO /
+
+         “export”...用户空间可以通过将GPIO编号写入此文件，要求内核将GPIO的控制权导出到用户空间。
+
+                     示例：“echo 19> export”将为GPIO＃19创建“gpio19”节点，如果内核代码未请求该节点。
+
+         “unexport”...反转导出到用户空间的效果。
+
+                     示例：“echo 19> unexport”将删除使用“export”文件导出的“gpio19”节点。
+
+GPIO信号具有/ sys / class / gpio / gpio42 /（对于GPIO＃42）的路径，并具有以下读/写属性：
+
+    / SYS /CLASSGPIO / gpioN /
+
+          “direction”......值为“in”或“out”。通常可以写入该值。写为“out”默认为将值初始化为低。为确保无干扰操作，可以写入“低”和“高”值，以将GPIO配置为具有该初始值的输出。请注意，如果内核不支持更改GPIO的方向，则该属性*将不存在*，或者由未明确允许用户空间重新配置此GPIO方向的内核代码导出。
+
+          “value”......值为0（低）或1（高）。如果GPIO配置为输出，则可以写入该值;任何非零值都被视为高。如果引脚可以配置为产生中断的中断，并且如果它已被配置为产生中断（参见“edge”的描述），则可以对该文件进行轮询（2），并且只要中断是，则poll（2）将返回触发。如果使用poll（2），请设置事件POLLPRI和POLLERR。如果使用select（2），请在exceptfds中设置文件描述符。在poll（2）返回之后，lseek（2）到sysfs文件的开头并读取新值或关闭文件并重新打开它以读取值。
+
+          “edge”......值为“无”，“上升”，“下降”或“两者”。写下这些字符串以选择将使“value”文件返回的poll（2）的信号边缘。仅当引脚可以配置为产生中断的输入引脚时，该文件才存在。
+
+          “active_low”......值为0（假）或1（真）。写入任何非零值以反转读取和写入的值属性。现有和随后的poll（2）支持通过edge属性进行“上升”和“下降”边缘的配置将遵循此设置。
+
+GPIO控制器具有类似/ sys / class / gpio / gpiochip42 /的路径（对于从＃42开始实现GPIO的控制器）并具有以下只读属性：
+
+    / SYS /CLASS/ GPIO / gpiochipN /
+
+          “base”......与N一样，是该芯片管理的第一个GPIO
+
+          “label”......提供诊断（并非始终唯一）
+
+          “ngpio”......这管理了多少GPIO（N到N + ngpio  -  1）
+
+        在大多数情况下，BSP文档应涵盖GPIO用于何种目的。但是，这些数字并不总是稳定的。
+
+GPIO LED灯翻转控制
+
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+ 
+int main(int argc, char *argv[]){
+    int fd;
+ 
+    // export GPIO
+    fd = open("/sys/class/gpio/export", O_WRONLY);
+    write(fd, "115", 3);
+    close(fd);
+ 
+    // Configure as output
+    fd = open("/sys/class/gpio/gpio115/direction", O_WRONLY);
+    write(fd, "out", 3);
+    close(fd);
+ 
+    // Blink GPIO once
+    fd = open("/sys/class/gpio/gpio115/value", O_WRONLY | O_SYNC);
+    write(fd, "0", 1);
+    usleep(1000000);
+    write(fd, "1", 1);
+    close(fd);
+ 
+    return EXIT_SUCCESS;
+}
+读取GPIO状态
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+ 
+int main(int argc, char *argv[]){
+    int fd;
+    char value;
+ 
+    // export GPIO
+    fd = open("/sys/class/gpio/export", O_WRONLY);
+    write(fd, "139", 3);
+    close(fd);
+ 
+    // configure as input
+    fd = open("/sys/class/gpio/gpio139/direction", O_WRONLY);
+    write(fd, "in", 2);
+    close(fd);
+ 
+    // read GPIO once
+    fd = open("/sys/class/gpio/gpio139/value", O_RDONLY);
+    read(fd, &value, 1); // read GPIO value
+    printf("GPIO value: %c\n", value); // print GPIO value
+    close(fd); //close value file
+ 
+    return EXIT_SUCCESS;
+}
+GPIO 中断使用
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <poll.h>
+ 
+int main(int argc, char *argv[]){
+    int fd;
+    char value;
+    struct pollfd poll_gpio;
+ 
+    poll_gpio.events = POLLPRI;
+ 
+    // export GPIO
+    fd = open("/sys/class/gpio/export", O_WRONLY);
+    write(fd, "139", 3);
+    close(fd);
+ 
+    // configure as input
+    fd = open("/sys/class/gpio/gpio139/direction", O_WRONLY);
+    write(fd, "in", 2);
+    close(fd);
+ 
+    // configure interrupt
+    fd = open("/sys/class/gpio/gpio139/edge", O_WRONLY);
+    write(fd, "rising", 6); // configure as rising edge
+    close(fd);
+ 
+    // open value file
+    fd = open("/sys/class/gpio/gpio139/value", O_RDONLY);
+    poll_gpio.fd = fd;
+ 
+    poll(&poll_gpio, 1, -1); // discard first IRQ
+    read(fd, &value, 1);
+ 
+    // wait for interrupt
+    while(1){
+        poll(&poll_gpio, 1, -1);
+        if((poll_gpio.revents & POLLPRI) == POLLPRI){
+            lseek(fd, 0, SEEK_SET);
+            read(fd, &value, 1);
+            printf("Interrupt GPIO val: %c\n", value); 
+            break;
+        }
+    }
+ 
+    close(fd); //close value file
+    return EXIT_SUCCESS;
+}
+ 
+————————————————
+版权声明：本文为CSDN博主「雲烟」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/baidu_33879812/article/details/95976520
+
+
+------------------------------
+
+
+
+
+
+
+

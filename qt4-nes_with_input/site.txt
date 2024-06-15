@@ -1,0 +1,103 @@
+https://blog.csdn.net/weixin_43777852/article/details/125395832
+error: 'class Ui::QPrintPropertiesWidget' has no member named 'cupsPropertiesPage'
+     delete widget.cupsPropertiesPage;
+
+需要把xubuntu200464换成ubuntu140464
+
+
+-------------
+
+
+https://het.as.utexas.edu/HET/Software/html/qt-embedded-envvars.html
+
+Qt for Embedded Linux Environment Variables
+These environment variables are relevant to Qt for Embedded Linux users.
+
+Variable	Description
+POINTERCAL_FILE	Specifies the file containing the data used to calibrate the pointer device.
+See also QWSCalibratedMouseHandler and Qt for Embedded Linux Pointer Handling.
+
+QT_ONSCREEN_PAINT	If defined, the application will render its widgets directly on screen. The affected regions of the screen will not be modified by the screen driver unless another window with a higher focus requests (parts of) the same region.
+Setting this environment variable is equivalent to setting the Qt::WA_PaintOnScreen attribute for all the widgets in the application.
+
+See also the Qt for Embedded Linux graphics rendering documentation.
+
+QWS_SW_CURSOR	If defined, the software mouse cursor is always used (even when using an accelerated driver that supports a hardware cursor).
+QWS_DISPLAY	Specifies the display type and framebuffer. For example, if the current shell is bash, ksh, zsh or sh:
+ export QWS_DISPLAY=<driver>[:<driver specific options>]...
+         [:<display num>]
+The valid values for the <driver> argument are LinuxFb, QVFb, VNC, Transformed, Multi and keys identifying custom drivers, and the <display num> argument is used to separate screens that are using the same screen driver and to enable multiple displays (see the Running Qt for Embedded Linux Applications documentation for more details).
+
+The driver specific options are described in the display management documentation.
+
+QWS_SIZE	Specifies the size of the Qt for Embedded Linux window which is centered within the screen. For example, if the current shell is bash, ksh, zsh or sh:
+ export QWS_SIZE=<width>x<height>
+QWS_MOUSE_PROTO	Specifies the driver for pointer handling. For example, if the current shell is bash, ksh, zsh or sh:
+ export QWS_MOUSE_PROTO=<driver>[:<driver specific options>]
+The valid values for the <driver> argument are MouseMan, IntelliMouse, Microsoft, LinuxTP, LinuxInput, Tslib and keys identifying custom drivers, and the driver specific options are typically a device, e.g., /dev/mouse for mouse devices and /dev/ts for touch panels.
+
+Multiple mouse drivers can be specified in one go:
+
+ export QWS_MOUSE_PROTO="<driver>[:<driver specific options>]
+         <driver>[:<driver specific options>]
+         <driver>[:<driver specific options>]"
+Input will be read from all specified drivers.
+
+See also Qt for Embedded Linux Pointer Handling.
+
+QWS_KEYBOARD	Specifies the driver and device for character input. For example, if the current shell is bash, ksh, zsh or sh:
+ export QWS_KEYBOARD=<driver>[:<driver specific options>]
+The valid values for the <driver> argument are TTY, LinuxInput and keys identifying custom drivers, and the driver specific options are typically a device, e.g., /dev/tty0.
+
+Multiple keyboard drivers can be specified in one go:
+
+ export QWS_KEYBOARD="<driver>[:<driver specific options>]
+         <driver>[:<driver specific options>]
+         <driver>[:<driver specific options>]"
+Input will be read from all specified drivers.
+
+See also Qt for Embedded Linux Character Input.
+
+
+
+-------------
+
+
+https://blog.csdn.net/qq_43445867/article/details/129604965
+
+<div id="content_views" class="htmledit_views">
+                    <p>&nbsp;一、隐藏箭头</p> 
+<div class="table-box"><table><thead><tr><th>Header</th><th>#include &lt; QCursor &gt;</th></tr></thead><tbody><tr><td>qmake</td><td>QT += gui</td></tr></tbody></table></div> 
+<p>1.如果只希望在某个 widget 中不显示<a href="https://so.csdn.net/so/search?q=%E9%BC%A0%E6%A0%87%E6%8C%87%E9%92%88&amp;spm=1001.2101.3001.7020" target="_blank" class="hl hl-1" data-report-click="{&quot;spm&quot;:&quot;1001.2101.3001.7020&quot;,&quot;dest&quot;:&quot;https://so.csdn.net/so/search?q=%E9%BC%A0%E6%A0%87%E6%8C%87%E9%92%88&amp;spm=1001.2101.3001.7020&quot;,&quot;extra&quot;:&quot;{\&quot;searchword\&quot;:\&quot;鼠标指针\&quot;}&quot;}" data-tit="鼠标指针" data-pretit="鼠标指针">鼠标指针</a>，那么在该 widget 的构造函数中调用</p> 
+<pre data-index="0" class="set-code-show" name="code"><code class="language-cpp hljs">QWidget::<span class="hljs-built_in">setCursor</span>(<span class="hljs-built_in">QCursor</span>(Qt::BlankCursor));</code><div class="hljs-button {2}" data-title="复制" onclick="hljs.copyCode(event)"></div></pre> 
+<p>2.如果希望整个应用程序不显示鼠标指针，那么在实例化 Application 后调用</p> 
+<pre data-index="1" class="set-code-show" name="code"><code class="language-cpp hljs">QApplication::<span class="hljs-built_in">setOverrideCursor</span>(Qt::BlankCursor);</code><div class="hljs-button {2}" data-title="复制" onclick="hljs.copyCode(event)"></div></pre> 
+<p>3.可以在任一控件或者页面下显示或者隐藏鼠标指针</p> 
+<pre data-index="2" class="set-code-show" name="code"><code class="language-cpp hljs"><ol class="hljs-ln" style="width:100%"><li><div class="hljs-ln-numbers"><div class="hljs-ln-line hljs-ln-n" data-line-number="1"></div></div><div class="hljs-ln-code"><div class="hljs-ln-line"><span class="hljs-keyword">this</span>-&gt;<span class="hljs-built_in">setCursor</span>(Qt::BlankCursor); &nbsp; <span class="hljs-comment">//隐藏鼠标</span></div></div></li><li><div class="hljs-ln-numbers"><div class="hljs-ln-line hljs-ln-n" data-line-number="2"></div></div><div class="hljs-ln-code"><div class="hljs-ln-line"><span class="hljs-keyword">this</span>-&gt;<span class="hljs-built_in">setCursor</span>(Qt::ArrowCursor); &nbsp;<span class="hljs-comment">//显示正常鼠标</span></div></div></li></ol></code><div class="hljs-button {2}" data-title="复制" onclick="hljs.copyCode(event)"></div></pre> 
+<p></p>
+                </div>
+
+this->setCursor(Qt::BlankCursor); 
+QApplication::setOverrideCursor(Qt::BlankCursor);
+
+NesEmulateWindow.cpp
+main.cpp
+
+-------------
+
+
+https://codeleading.com/article/44962015034/
+
+
+//添加头文件
+#include <QWSServer>
+//main函数内，QApplication实例化之后，添加如下代码，禁用光标
+QWSServer::setCursorVisible(false)
+
+
+
+-------------
+cd /mnt/UDISK
+QWS_KEYBOARD=:/dev/input/event1 ./Qt -qws
+
+-----------

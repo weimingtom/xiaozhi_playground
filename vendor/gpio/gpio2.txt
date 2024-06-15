@@ -1,0 +1,612 @@
+https://v853.docs.aw-ol.com/gui/lvgl_nes/
+
+--------------
+gpio_set_direction
+--
+
+pintester.sh
+whycanpi_handheld_c3_m2_20230807_min.tar\opt\D1\tina_d1_open_v2_for_whycanpi\package\testtools\tinatest\testcase\base\production\pintester - TAR 压缩文件, 解包大小为 1,883,620,217 字节
+
+
+cxdish
+host_depend.cpp
+whycanpi_handheld_c3_m2_20230807_min.tar\opt\D1\tina_d1_open_v2_for_whycanpi\package\utils\cxdish\src - TAR 压缩文件, 解包大小为 1,883,620,217 字节
+
+main.cpp
+whycanpi_handheld_c3_m2_20230807_min.tar\opt\D1\tina_d1_open_v2_for_whycanpi\package\utils\led\src - TAR 压缩文件, 解包大小为 1,883,620,217 字节
+
+
+rc.final
+whycanpi_handheld_c3_m2_20230807_min.tar\opt\D1\tina_d1_open_v2_for_whycanpi\target\allwinner\d1s-nezha\busybox-init-base-files\etc\init.d - TAR 压缩文件, 解包大小为 1,883,620,217 字节
+
+
+---------------
+https://v853.docs.aw-ol.com/soft/dev_gpio/
+
+
+GPIO
+本章节将对内核GPIO模块进行介绍。
+
+GPIO （General Purpose Input Output，通用输入输出）有时也被称为 IO 口。既能输出也能输入。是嵌入式系统中重要的一部分。
+
+在 Linux 系统中，GPIO 通常由 Pinctrl 系统进行管理。Linux 定义了 Pinctrl 框架，统一了各大 SoC 厂商的 Pin 管理方式，避免了各大厂商自行实现自己的 Pin 管理系统，是一个非常有用的功能。
+
+Pinctrl 系统
+许多 SoC 内部都包含 Pin 控制器，通过 Pin 控制器，我们可以配置一个或一组引脚的功能和特 性。在软件上，Linux 内核 Pinctrl 驱动可以操作 Pin 控制器为我们完成如下工作：
+
+在 Linux 中命名 pin 控制器可以控制的所有引脚
+提供引脚的复用功能
+提供配置引脚的能力，如驱动能力、上拉下拉、数据属性等
+与 gpio 子系统的交互
+实现中断
+针对全志平台，使用的框架叫做 SUNXI Pinctrl，其框架如下图所示。整个驱动模块可以分成 4 个部分：Pinctrl Interface、Pinctrl Framework、Pinctrl Driver，以及 Device Tree。
+
+Pinctrl Interface：提供给上层用户调用的接口，可以给各类外设驱动，也可以提供 GPIO 子系统的接口。
+Pinctrl Framework：Linux 提供的 Pinctrl 驱动框架。
+Pinctrl Driver：底层 Pin 控制器的驱动，对于全志平台则是 SUNXI Pinctrl。
+Device Tree：设备 Pin 配置信息，一般保存在设备树里。
+image-20220707182218638
+
+而 Pinctrl Framework 主要处理 Pin State、Pin Mux 和 Pin Config 三个功能
+
+（1）Pin State：系统运行在不同的状态，其 Pin 的配置有可能不一样，比如系统正常运行时，设备的 Pin 需要一组配置，但系统进入休眠时，为了节省功耗，设备 Pin 需要另一组配置。Pinctrl Framwork 提供了三种 Pin State可供切换：default, sleep, idle，对应正常模式，休眠模式 和 空闲模式。
+
+（2）Pin Mux：Pin 的功能不是唯一的，一个 Pin 可能支持很多功能。例如 查阅 GPIO MUX 表格，可以看到 PE0 这个 Pin 有 8 个 MUX。当我想用 PE0 作为 PWM 输出的时候，我就需要设置 PE0 的 Pin Mux 为 5。
+
+image-20220708105520847
+
+你可能注意到了，Pin Function 的 id 并不是从 0 开始的。例如这里没有 Function 0、1，因为 Function 0 是单向输入模式，Function 1 是单向输出模式，由于所有引脚都具有这样的功能，所以在 PinMux 表内就被省略了。另外这里 Function 8 后其实有 Function 9~13，但是因为没有绑定对应功能所以在 PinMux 表内被省略了。Function 14 是中断的 mux，而 Function 15 表示关闭这个 Pin。
+
+所以完整的 PinMux 表应该是这样的（以 PE0 为例 Function 简写为 F）：
+
+Pin Name	F0	F1	F2	F3	F4	F5	F6	F7	F8	F9	F10	F11	F12	F13	F14	F15
+PE0	输入	输出	NCSI-PCLK	RGMII-RXD1	I2S-MCLK	PWM0	SDC1-CLK	UART3-TX	TWI3-SCK	保留	保留	保留	保留	保留	中断	关闭
+（3）Pin Config：读取设备树里的 Pin 的配置文件，并确定 Pin 的驱动能力、上拉下拉、数据属性。同时也提供上层驱动的接口。
+
+下面是 Pinctrl 源码结构
+
+
+linux
+|
+|-- drivers
+|    |-- pinctrl                          # Linux Kernel 的实现
+|    |       |-- Kconfig
+|    |       |-- Makefile
+|    |       |-- core.c
+|    |       |-- core.h
+|    |       |-- devicetree.c
+|    |       |-- devicetree.h
+|    |       |-- pinconf.c
+|    |       |-- pinconf.h
+|    |       |-- pinmux.c
+|    |       `-- pinmux.h
+|    `-- sunxi                            # 全志平台的实现
+|           |-- pinctrl-sunxi-test.c
+|           |-- pinctrl-sun*.c
+|           `-- pinctrl-sun*-r.c
+`-- include                               # 头文件
+     `-- linux
+          `-- pinctrl
+                  |-- consumer.h
+                  |-- devinfo.h
+                  |-- machine.h
+                  |-- pinconf-generic.h
+                  |-- pinconf.h
+                  |-- pinctrl-state.h
+                  |-- pinctrl.h
+                  `-- pinmux.h
+设备树配置
+Pinctrl 的设备树分为三个部分：
+
+第一部分包括基础的寄存器配置、设备驱动绑定配置和时钟中断配置，还定义了一些基础的 Pin 的绑定。这一部分的配置位于 kernel/linux-4.9/arch/arm/boot/dts/sun8iw21p1-pinctrl.dtsi 文件内。这一部分通常不需要修改。
+目前，在全志平台，根据电源域注册了两个 Pinctrl 设备，分别是：r_pio 设备 （PL0 后的所有 Pin（包括PL0）） 和 pio 设备 （PL0 前的所有 Pin），这里截取一部分简单说明下各个配置的信息。
+
+
+r_pio: pinctrl@07022000 {
+    compatible = "allwinner,sun8iw21p1-r-pinctrl";   // 兼容属性，用于驱动和设备绑定
+    reg = <0x0 0x07022000 0x0 0x400>;                // 寄存器基地址0x07022000和范围0x400
+    interrupts = <GIC_SPI 106 4>;                    // 该设备每个bank支持的中断配置和gic中断号
+    device_type = "r_pio";                           // 设备类型属性
+    gpio-controller;                                 // 表示是一个gpio控制器
+    interrupt-controller;                            // 表示是一个中断控制器
+    #interrupt-cells = <3>;                          // Pin 中断属性需要配置的参数个数
+    #size-cells = <0>;                               // 没有使用，配置0
+};
+
+pio: pinctrl@02000000 {
+    compatible = "allwinner,sun8iw21p1-pinctrl";     // 兼容属性，用于驱动和设备绑定
+    reg = <0x0 0x02000000 0x0 0x400>;                // 寄存器基地址0x02000000和范围0x400
+    interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>,   // 该设备每个bank支持的中断配置和
+                 <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>,   // gic中断号，每个中断号对应一个
+                 <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>,   // 支持中断的bank
+                 <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>,
+                 <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>,
+                 <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>,
+                 <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>,
+                 <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+    device_type = "pio";                             // 设备类型属性
+    clocks = <&clk_apb0>;                            // 该设备使用的时钟
+    gpio-controller;                                 // 表示是一个gpio控制器
+    interrupt-controller;                            // 表示是一个中断控制器
+    #interrupt-cells = <3>;                          // pin中断属性需要配置的参数个数
+    #size-cells = <0>;                               // 没有使用这个配置
+    #gpio-cells = <6>;                               // gpio属性需要配置的参数个数
+    input-debounce = <0 0 0 1 0 0 0>;                // 配置中断采样频率
+                                                     // 每个对应一个支持中断的bank，单位us
+    uart0_pins_a: uart0@0 {                          // uart0_pins_a 模块
+        allwinner,pins = "PH9", "PH10";              // 绑定的引脚
+        allwinner,function = "uart0";                // 给定设备类型属性
+        allwinner,muxsel = <5>;                      // 选择 5 号功能的 mux
+        allwinner,drive = <1>;                       // Pin 的驱动力
+        allwinner,pull = <1>;                        // 默认上拉
+    };
+};
+第二部分定义了 Pin 的其他功能，扩展功能等等，位于 device/config/chips/v853/configs/vision/board.dts 设备树内。这里也截取一部分。
+
+
+&pio {
+    wlan_pins_a: wlan@0 {
+        allwinner,pins = "PG6";
+        allwinner,function = "fanout0";
+        allwinner,muxsel = <3>;
+    };
+
+    uart0_pins_active: uart0@0 {
+        allwinner,pins = "PH9", "PH10";
+        allwinner,function = "uart0";
+        allwinner,muxsel = <5>;
+        allwinner,drive = <1>;
+        allwinner,pull = <1>;
+    };
+
+    uart0_pins_sleep: uart0@1 {
+        allwinner,pins = "PH9", "PH10";
+        allwinner,function = "gpio_in";
+        allwinner,muxsel = <0>;
+    };
+
+    uart1_pins_active: uart1@0 {
+        allwinner,pins = "PG6", "PG7";
+        allwinner,function = "uart1";
+        allwinner,muxsel = <4>;
+        allwinner,drive = <1>;
+        allwinner,pull = <1>;
+    };
+
+    uart1_pins_sleep: uart1@1 {
+        allwinner,pins = "PG6", "PG7";
+        allwinner,function = "gpio_in";
+        allwinner,muxsel = <0>;
+    };
+
+    uart2_pins_active: uart2@0 {
+        allwinner,pins = "PE12", "PE13", "PE10", "PE11";
+        allwinner,function = "uart2";
+        allwinner,muxsel = <6>;
+        allwinner,drive = <1>;
+        allwinner,pull = <1>;
+    };
+
+    uart2_pins_sleep: uart2@1 {
+        allwinner,pins = "PE12", "PE13", "PE10", "PE11";
+        allwinner,function = "gpio_in";
+        allwinner,muxsel = <0>;
+    };
+
+    ... 下略 ...
+第三部分则是对接驱动的配置，对于使用 Pin 的驱动来说，设备树里主要设置了 Pin 的常见的三种功能：
+
+只配置通用GPIO，即用来做输入、输出和中断的那部分
+需要设置 Pin 的 Pin Mux，如 UART 设备的 Pin，MIPI LCD 设备的 MIPI 数据 Pin 等，用于特殊功能
+驱动使用者既要配置 Pin 的通用功能，也要配置 Pin 的特性
+下面对这三种常见配置举例：
+
+（1）只配置通用GPIO，即用来做输入、输出和中断的那部分 ：
+
+需求：
+
+USB 的 OTG ID 脚接到了 PE0 引脚上，当插入的是 U盘 等下位机设备时切换 OTG 到 HOST 模式，当插入 电脑 等上位机连接开发板 ADB 时，切换 OTG 到 DEVICE 模式。
+
+当设备检测到 ID 信号为低时，表该设备应作为 Host（主机，也称A设备）用。
+当设备检测到 ID 信号为高时，表示该设备作为 Device (外设，也称B设备）用。
+
+这是他的配置，我们重点关注 usb_id_gpio = <&pio PE 0 0 1 0xffffffff 0xffffffff>; 这一部分
+
+
+&usbc0 {
+    device_type = "usbc0";
+    usb_port_type = <0x2>;
+    usb_detect_type = <0x1>;
+    usb_detect_mode = <0x0>;
+    usb_id_gpio     = <&pio PE 0 0 1 0xffffffff 0xffffffff>;   // 重点
+    usb_det_vbus_gpio = "axp_ctrl";
+    det_vbus_supply = <&gpio_charger>;
+    usb_regulator_io = "nocare";
+    usb_wakeup_suspend = <0x0>;
+    usb_luns = <0x3>;
+    usb_serial_unique = <0x0>;
+    usb_serial_number = "20080411";
+    status = "okay";
+};
+其中的 gpios = <&pio PE 0 0 1 0xffffffff 0xffffffff>; 定义如下：
+
+
+    gpios = <&pio   PE  0   0   1   0   0xffffffff>;
+                |   |   |   |   |   |   `---输出电平，只有output才有效，这里是输入所以不使用
+                |   |   |   |   |   `-------驱动能力，值为 0 时采用默认值
+                |   |   |   |   `-----------上下拉，值为 1 时采用默认值，这里默认上拉
+                |   |   |   `---------------复用类型，这里是输入，所以是 Function 0 复用
+                |   |   `-------------------当前 bank 中哪个引脚，这里是 PE 组内 0 号引脚
+                |   `-----------------------哪个 bank，这里是 PE Pin 组
+                `---------------------------指向哪个 pio，PL0 后要用 &r_pio
+（2）需要设置 Pin 的 Pin Mux，如 UART 设备的 Pin，MIPI LCD 设备的 MIPI 数据 Pin 等，用于特殊功能
+
+需求：
+
+配置 PH9，PH10 作为 UART0
+
+这里是他的配置，由于 PH Bank 在 PL 之前，所以需要在 &pio 内配置uart的
+
+
+&pio {
+    uart0_pins_active: uart0@0 {             // 正常模式使用的 pinctrl
+        allwinner,pins = "PH9", "PH10";      // 使用PH9, PH10 引脚
+        allwinner,function = "uart0";        // 功能是 uart0
+        allwinner,muxsel = <5>;              // 查阅复用表得知是 Function 5
+        allwinner,drive = <1>;               // 驱动力设置 1
+        allwinner,pull = <1>;                // 默认上拉
+    };
+
+    uart0_pins_sleep: uart0@1 {              // 休眠模式使用的 pinctrl
+        allwinner,pins = "PH9", "PH10";      // 使用PH9, PH10 引脚
+        allwinner,function = "gpio_in";      // 功能是 gpio_in
+        allwinner,muxsel = <0>;              // 设置为输入模式
+    };
+};
+
+&uart0 {
+    pinctrl-names = "default", "sleep";      // 两个 pinctrl 工作模式的名称
+    pinctrl-0 = <&uart0_pins_active>;        // 模块正常模式下对应的 Pin 配置
+    pinctrl-1 = <&uart0_pins_sleep>;         // 模块休眠模式下对应的 Pin 配置
+    status = "okay";                         // 启用这个模块
+};
+其中的：
+
+pinctrl-0对应pinctrl-names中的default，即模块正常工作模式下对应的 Pin 配置
+pinctrl-1对应pinctrl-names中的sleep，即模块休眠模式下对应的 Pin 配置
+（3）驱动使用者既要配置 Pin 的通用功能，也要配置 Pin 的特性
+
+需求：
+
+需要驱动一块使用 GT911 驱动芯片的触摸屏，触摸屏使用 TWI 与 SoC 通讯，并且使用 SoC 的 TWI2 与触摸屏通讯。触摸屏的引脚与 SoC 连接方式如下表：
+
+SCK	SDA	INT	RST
+PH5	PH6	PH7	PH8
+这时就需要配置两个部分，第一部分是 TWI 接口的特殊功能（同样，这里只注意 Pin相关的配置，TWI 相关的配置不用理会）
+
+
+&pio {
+    twi2_pins_a: twi2@0 {                         // 正常模式使用的 pinctrl
+        allwinner,pins = "PH5", "PH6";            // 使用 PH5 PH6 引脚
+        allwinner,pname = "twi2_scl", "twi2_sda"; // 两个脚的名称
+        allwinner,function = "twi2";              // 功能是 twi2
+        allwinner,muxsel = <4>;                   // 查询可知是 Function 4
+        allwinner,drive = <0>;                    // TWI 是开漏输出外部上拉的，所以驱动能力为0
+        allwinner,pull = <1>;                     // 当然也可以使用芯片自己配置上拉，不过芯片驱动能力较弱可能导致上拉不完全
+    };
+
+    twi2_pins_b: twi2@1 {                         // 休眠模式使用的 pinctrl
+        allwinner,pins = "PH5", "PH6";            // 使用 PH5 PH6 引脚
+        allwinner,function = "io_disabled";       // 禁用这个脚
+        allwinner,muxsel = <0xf>;                 // 16进制的15，在mux表内表示关闭
+        allwinner,drive = <0>;                    // 驱动能力0
+        allwinner,pull = <0>;                     // 不上拉
+    };
+};
+
+&twi2 {
+    pinctrl-0 = <&twi2_pins_a>;                   // 模块正常模式下对应的 Pin 配置
+    pinctrl-1 = <&twi2_pins_b>;                   // 模块休眠模式下对应的 Pin 配置
+    pinctrl-names = "default", "sleep";           // 两个 pinctrl 工作模式的名称
+    clock-frequency = <400000>;
+    twi_drv_used = <0>;
+    twi_pkt_interval = <0>;
+    status = "okay";                              // 启用模块
+
+    goodix {
+        compatible = "goodix,gt911";
+        reg = <0x40>;
+        int-gpios = <&pio PH 7 0 0 1 0>;          // 配置 PH7，输入模式
+        reset-gpios = <&pio PH 8 1 0 1 0>;        // 配置 PH8，输出模式
+        touchscreen-size-x = <1280>;
+        touchscreen-size-y = <720>;
+        status = "okay";                          // 启用模块
+    };
+};
+Kernel 配置
+make kernel_menuconfig 进入配置主界面，选择 Device Drivers 并进入
+
+image-20220708132358491
+
+找到 Pin controllers ，进入下一级菜单
+
+image-20220708132525467
+
+找到 Allwinner SOC PINCTRL DRIVER 进入下一级菜单
+
+image-20220708132619572
+
+勾选 [*] Pinctrl sun8iw21p1 PIO controller 即可
+
+image-20220708132702209
+
+使用 GPIO
+这里通过两个小例子来介绍下怎么使用 GPIO 驱动（点灯）
+
+使用 Linux 的文件节点点亮一颗 LED
+Linux 里万物皆为文件，GPIO 也不例外，接下来就介绍下怎么使用 Linux 的文件节点点灯。
+
+（1）启用 GPIO 子系统的文件调用界面
+
+GPIO 子系统是基于 Pinctrl 框架下的最简单的 GPIO 操作软件。而它又提供了一套简单的文件系统可以直接以文件进行操作。
+
+先配置下内核， make kernel_menuconfig 进入配置主界面，选择 Device Drivers 并进入
+
+image-20220708132358491
+
+找到 GPIO Support 进入下级菜单
+
+image-20220708173916748
+
+勾选下 [*] /sys/class/gpio/... (sysfs interface)
+
+image-20220708174208228
+
+编译，烧写即可。
+
+（2）找到需要点亮的 GPIO
+
+看一下原理图，可以看到有一颗名叫 DP2 的 LED 灯，通过网络标签 LED-REC 连接到主控的 PH11 脚上，拉低就能点亮。
+
+image-20220708174928881
+
+image-20220708175031640
+
+我们来计算下 PH11 的 IO 号 7 * 32 + 11 = 235，那就导出 235 号 GPIO
+
+
+root@TinaLinux:/# echo 235 > /sys/class/gpio/export
+然后到导出的文件节点查看下
+
+
+root@TinaLinux:/# cd /sys/class/gpio/gpio235
+root@TinaLinux:/# ls
+image-20220708175353119
+
+可以看到一些文件，我们可以通过读写这些文件来点亮这颗 LED
+
+首先设置 GPIO 为输出状态
+
+root@TinaLinux:/# echo out > direction
+然后点亮 LED
+
+root@TinaLinux:/# echo 0 > value
+LED
+
+也可以关闭
+
+root@TinaLinux:/# echo 1 > value
+编写一个内核驱动，点亮 LED
+首先我们编写这样一个内核驱动程序 led.c：
+
+
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <mach/gpio.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/poll.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
+#include <asm/uaccess.h>
+#include <asm/io.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/device.h>
+
+#define COUNT 1
+
+#define LED_IO GPIOH(11)         // 要点亮的 led 
+
+#define dev_name "V853_LED"
+
+dev_t device_id;                 // 存放设备 ID
+struct cdev led_cdev;            // led cdev 结构
+static struct class *led_class;  // led 类操作
+
+// 定义 Open 函数
+static int led_open(struct inode *inode_, struct file *file_)
+{
+    int ret;
+    ret = gpio_request(LED_IO, "led_0");
+    if (ret < 0)
+    {
+        return ret;
+    }
+    else
+    {
+        gpio_direction_output(LED_IO, 0);
+        return 0;
+    }
+}
+
+// 定义写操作
+static ssize_t led_write(struct file *file_, const char *__user buf_, size_t len_, loff_t *loff_)
+{
+    char stat; int ret;
+
+    ret = copy_from_user(&stat, buf_, sizeof(char));  // 读取用户写入的信息
+    if(ret < 0)
+        return ret;
+
+    if (!stat)                                        // 因为 LED 是下拉点亮，所以反选，如果是上拉点亮那就删除 !
+    {
+        gpio_set_value(LED_IO, 0);                    // 点亮一颗 LED
+    } 
+    else
+    {
+        gpio_set_value(LED_IO, 1);                    // 熄灭 LED
+    }
+    return 0;
+}
+
+// 关闭 GPIO 操作
+static int led_close(struct inode *inode_, struct file *file_)
+{
+    gpio_set_value(LED_IO, 0);                       // 恢复 IO 状态
+    gpio_free(LED_IO);                               // 清除绑定
+    return 0;
+}
+
+// 封包为文件系统操作接口
+static struct file_operations led_file_operations = {
+    .owner = THIS_MODULE,
+    .open = led_open,
+    .write = led_write,
+    .release = led_close,
+};
+
+// 初始化设备使用的操作
+static int __init led_init(void)
+{
+    int ret;
+
+    device_id = MKDEV(3242, 3432);   // 随便定义的 设备id
+    ret = register_chrdev_region(device_id, COUNT, dev_name);   // 注册设备
+    if (ret < 0)
+    {
+        return ret;
+    }
+
+    cdev_init(&led_cdev, &led_file_operations);
+    led_cdev.owner = THIS_MODULE;
+    ret = cdev_add(&led_cdev, device_id, COUNT);              // 加入到 cdev
+
+    if (ret < 0)
+    {
+        unregister_chrdev_region(device_id, COUNT);
+    }
+
+    led_class = class_create(THIS_MODULE, "led_class");         // 创建类
+    if (led_class == NULL)
+    {
+        cdev_del(&led_cdev);
+    }
+
+    device_create(led_class, NULL, device_id, NULL, dev_name);   // 创建设备
+
+    return 0;
+}
+
+// 删除设备的操作
+static void __exit led_exit(void)
+{
+    // 刚才怎么创建的就怎么删除
+    device_destroy(led_class, device_id);
+    class_destroy(led_class);
+    unregister_chrdev_region(device_id, COUNT);
+    cdev_del(&led_cdev);
+    gpio_free(LED_IO);
+}
+
+module_init(led_init);
+module_exit(led_exit);
+
+MODULE_LICENSE("WTFPL");
+MODULE_AUTHOR("AWOL");
+MODULE_DESCRIPTION("light up v853 vision led");
+MODULE_VERSION("1.0");
+然后编写 Makefile
+
+
+obj-$(CONFIG_V853_LED) += led.o
+和 Kconfig
+
+
+config V853_LED
+    tristate "Light up V853 Vision LED"
+    help
+      Light up V853 Vision LED
+这里把这个驱动文件保存到了 kernel/linux-4.9/drivers/staging/led/ 文件夹内。作为 staging drivers 编译。你也可以放到其他地方。不过基本操作都是一样的。
+
+image-20220711163814946
+
+然后再编辑下 staging 文件夹的 Makefile 与 Kconfig
+
+编辑 kernel/linux-4.9/drivers/staging/Makefile 加入编译选项
+
+
+obj-$(CONFIG_V853_LED)      += led/
+image-20220711164044153
+
+编辑 kernel/linux-4.9/drivers/staging/Kconfig ，增加 Kconfig 引索
+
+
+source "drivers/staging/led/Kconfig"
+image-20220711164135219
+
+最后 make kernel_menuconfig 到下列文件夹内找到 Light up V853 Vision LED 选项
+
+
+-> Device Drivers                                                                         
+  -> Staging drivers
+    -> <*> Light up V853 Vision LED
+image-20220711164520910
+
+编译打包 mp ，编译的时候可以看到 led.o 被编译了
+
+image-20220711164629944
+
+烧录后便可以看到 V853_LED 设备
+
+
+root@TinaLinux:/# ls /dev/
+image-20220711164730878
+
+这时可以使用 echo 命令点亮 LED，ctrl + c 键退出时 LED 熄灭
+
+
+root@TinaLinux:/# echo 1 > /dev/V853_LED
+image-20220711164834335
+
+我们也可以编写一个小程序，在程序中访问这个设备。比如这里的闪灯Demo
+
+
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+
+int main(int argc, char **argv)
+{
+    int fd;
+    char LED_ON = 1, LED_OFF = 0;
+
+    fd = open("/dev/V853_LED", O_RDWR);
+    if (fd < 0)
+    {
+        perror("open device V853_LED error");
+    }
+    while (1)
+    {
+        write(fd, &LED_ON, 1);
+        sleep(1);
+        write(fd, &LED_OFF, 1);
+        sleep(1);
+    }
+    return 0;
+}
+

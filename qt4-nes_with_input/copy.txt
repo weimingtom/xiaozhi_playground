@@ -1,0 +1,24 @@
+D:\adt-bundle-windows-x86-20140624\sdk\platform-tools>adb push Qt /mnt/UDISK
+3889 KB/s (14987688 bytes in 3.762s)
+
+D:\adt-bundle-windows-x86-20140624\sdk\platform-tools>adb shell
+/ # cd /mnt/UDISK
+cd /mnt/UDISK
+/mnt/UDISK # chmod +x Qt
+chmod +x Qt
+/mnt/UDISK # ./Qt -qws
+./Qt -qws
+[9;0][?33l[?25l[?1c Cannot open input device '/dev/tty0': No such file or directory
+InfoNES_SoundInit
+resize width: 512  height: 480
+
+
+====================
+
+
+>adb push Qt /mnt/UDISK
+>adb shell
+# killall Qt_boot
+# cd /mnt/UDISK
+# chmod +x ./Qt
+
